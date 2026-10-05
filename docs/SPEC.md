@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.1)
+# M.U.L.E. Reborn — Design Spec (v0.2)
 
 A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
 Electronic Arts, 1983). Faithful to the original's economy and rhythm;
@@ -58,13 +58,28 @@ part of what made it readable at a glance, and we're keeping that.
   Office (Crystite games only).
 - **Adjacency bonus:** a Mule's production is boosted when it sits next
   to other plots of players producing the *same* resource — rewards
-  building a contiguous bloc rather than scattering. Exact bonus curve:
-  start with +10% production per same-resource adjacent neighbor (max
-  4 neighbors), tune after playtesting.
+  building a contiguous bloc rather than scattering.
+  - **+10% production per same-resource adjacent neighbor** (up to 4
+    neighbors, one per side of the grid tile).
+  - **+5% extra kicker when the bloc is 3 or more tiles**, i.e. once a
+    plot's cluster of mutually-adjacent same-resource plots reaches size
+    3+, every plot in that cluster gets the base +10%/neighbor *plus* a
+    flat +5%. This rewards committing to a bloc over just pairing up two
+    plots.
+  - Example: a plot with 2 same-resource neighbors in a bloc of 3+ gets
+    +10%×2 + 5% = +25% total; the same plot in an isolated pair (bloc
+    size 2) gets +10%×2 = +20%, no kicker.
 
 ## 4. Round structure
 
-Each round (12 rounds per game, matching the original's "one year"):
+Each round represents one month; a full game is **12 rounds = one year**,
+matching the original. Round count is a per-room config value with 12 as
+the default, not hardcoded — opens the door to later variants (a 6-round
+"blitz" tournament format, a 20+ round "reach stasis" long game) without
+touching the round-resolution logic, but every game still has a defined,
+finite end (no open-ended/endless mode).
+
+The 5 phases each round:
 
 1. **Land Grant** (land selection — see below)
 2. **Turns** (sequential per-player actions: buy/outfit/place Mules,
@@ -85,10 +100,12 @@ land, lose the reflex requirement.
    first or always going last, which keeps every round tense regardless
    of current rank.
 2. **Simultaneous blind picks.** All players privately submit, within a
-   short window (e.g. 20s, extendable if everyone's still deciding), a
-   **1st choice** and **2nd choice** plot from the unclaimed map. Players
-   see the map and all terrain/adjacency info while choosing, but not each
-   other's picks.
+   **10-second window**, a **1st choice** and **2nd choice** plot from
+   the unclaimed map. Players see the map and all terrain/adjacency info
+   while choosing, but not each other's picks. 10s is enough to register
+   two picks without being a reflex test; a player who times out is
+   auto-submitted with no picks and falls straight to the Fallback step
+   below.
 3. **Resolution (Boston/immediate-acceptance mechanism):**
    - **Pass A:** walk the random priority order; each player is granted
      their 1st choice if it's still unclaimed at the moment their turn in
@@ -111,13 +128,9 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 
 ### 4.2 Turns
 
-- Turn order within the Turns phase is **current wealth descending**
-  (wealthiest acts first), per the original's framing you described.
-  *(Note: this is the opposite of some published descriptions of the
-  original, which gave the poorest player first pick as a catch-up
-  mechanic — flagging this in case you want to double check your memory
-  against a rules reference before we lock it in. Easy to flip either way
-  — it's a single comparator in the turn-order code.)*
+- Turn order within the Turns phase is **always current wealth
+  descending** (wealthiest acts first, poorest acts last) — confirmed,
+  no catch-up reversal.
 - On their turn, a player may, in any order, spend their turn budget on:
   - Buy a Mule (costs money + Smithore, scales with how many already
     exist in the colony).
@@ -189,10 +202,46 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 | Smithore | Mountain-adjacent plots | Building new Mules |
 | Crystite | Hidden deposits (difficulty setting) | Pure money — sell only |
 
-## 6. Mules
+## 6. Mules & store economy
 
-- Bought at the Store for money + Smithore.
-- Outfitted for exactly one resource at a time; re-outfitting has a cost.
+- **Store stock:** 12 Mules available at game start (colony-wide supply,
+  not per-player). Once sold out, no new Mules can be bought until the
+  store restocks — restock rate/trigger is a balance item to tune in
+  M1/M4 (candidates: a fixed per-round trickle, or restock tied to
+  colony Smithore production).
+- **Starting money** (per player, set by difficulty):
+  | Difficulty | Starting cash |
+  |---|---|
+  | Easy | $1,200 |
+  | Normal | $1,000 |
+  | Hard | $1,000 |
+
+  Working assumption: **Hard** is the "difficult setting" from the
+  original — i.e. the one where Crystite and the Assay Office are in
+  play (see §9). Easy/Normal play Food/Energy/Smithore only. Flagging
+  this mapping in §11 to confirm before M4.
+- **Mule price:** base price **$125**, bought for cash only (no Smithore
+  cost to buy — Smithore is what a player *produces to sell*, not a
+  purchase currency, consistent with §5's resource table). The price
+  floats with colony-wide Smithore supply: more Smithore in the
+  market/store stockpile pushes the Mule price down (ore is cheap and
+  plentiful, Mules are cheap to build); a Smithore shortage pushes the
+  price up. Exact curve and min/max bounds are a tuning item — $125 is
+  the starting/reference price, not a fixed price.
+- **Outfitting cost** (one-time cost to configure a Mule for a resource,
+  paid when outfitting or re-outfitting):
+  | Outfit for | Cost |
+  |---|---|
+  | Food | $25 |
+  | Energy | $50 |
+  | Mining (Smithore or Crystite) | $100 |
+
+  Working assumption: "mining" is a single outfit type priced at $100
+  that covers *both* Smithore and Crystite (both are extracted from the
+  ground the same way); which of the two it actually produces is
+  determined by the plot it's placed on (a Crystite deposit vs. a plain
+  Mountain tile), not by a separate outfit choice. Flagging in §11 in
+  case Crystite should instead be a pricier/separate outfit tier.
 - Placed on a plot the player owns; one Mule per plot.
 - Lost to a meteor strike (rare) or can be sold back to the store.
 
@@ -259,10 +308,17 @@ mule_game/
 
 ## 11. Open questions / assumptions to confirm before M1
 
-- Turn order direction (wealthiest-first vs poorest-first) — see §4.2.
-- Land Grant pick timer length and whether to show live claims during
-  resolution — see §4.1.
-- Exact adjacency bonus curve (+10%/neighbor is a placeholder).
-- Game length: locking at 12 rounds, or configurable per room?
-- Starting resources/money and Mule pricing curve — needs a first pass of
-  numbers, will draft in a balance doc once M1 is underway.
+- Whether to show a live "who's claimed what" feed during Land Grant
+  resolution vs. a single end reveal — see §4.1.
+- **Difficulty → resource mapping:** assumed Hard = the original's
+  "difficult setting" (Crystite + Assay Office in play), Easy/Normal =
+  Food/Energy/Smithore only. Confirm before M4.
+- **Mining outfit:** assumed one $100 "mining" outfit produces either
+  Smithore or Crystite depending on the plot it's placed on, rather than
+  Crystite needing its own (pricier) outfit tier. Confirm before M4.
+- **Mule price curve:** $125 base, floats with colony Smithore supply —
+  exact formula and min/max bounds still to be set; will draft in a
+  balance pass once M1 is underway.
+- **Store Mule restock:** 12 in stock at game start; restock
+  rate/trigger once sold out is still open (fixed trickle vs. tied to
+  Smithore production).
