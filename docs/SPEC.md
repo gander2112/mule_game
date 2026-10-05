@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.3)
+# M.U.L.E. Reborn — Design Spec (v0.4)
 
 A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
 Electronic Arts, 1983). Faithful to the original's economy and rhythm;
@@ -171,9 +171,15 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 
 - One open auction per round. All players can simultaneously post sell
   offers or buy offers for Food/Energy/Smithore/Crystite.
-- The **Store** is buyer-of-last-resort and seller-of-last-resort at a
-  published, slowly-drifting price (so there's always liquidity, matching
-  "sellers can always sell to the store").
+- The **Store** is buyer-of-last-resort and seller-of-last-resort, and it
+  holds **real, tracked stock** per resource rather than being an
+  abstract infinite counterparty — see §6.1 for starting stock and the
+  price-vs-stock relationship.
+- **Crystite is sell-only at the Store.** Nobody ever needs to buy
+  Crystite back (it has no production use — see §5), so the Store is a
+  pure cash sink for it: it always buys, at a published price, but never
+  offers it for sale and doesn't carry a "stock" of it in the supply
+  sense §6.1 describes for the other three.
 - Implementation: a simple continuous double auction — standing bids/asks
   matched by price-time priority within the auction's time window, same
   concept as the original's cartoon-y shouting marketplace but resolved
@@ -182,6 +188,21 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 
 ### 4.5 Events & Scoring
 
+- **Spoilage check** (runs first, right after the Auction — this is the
+  player's last chance to sell before losing it): any player holding
+  more than their **free storage cap** of a resource loses a portion of
+  the excess. Applies to all four resources (Food, Energy, Smithore,
+  Crystite) — uniform rule, including Crystite, so there's no "safe"
+  hoard even of the pure-money resource; it has to keep moving through
+  the economy.
+  - **Free storage cap:** placeholder **20 units per resource per
+    player**, flat (not scaled by plot/Mule count yet — revisit once
+    production numbers exist from playtesting).
+  - **Spoilage rate:** placeholder **25% of the amount over the cap**,
+    lost (not sold — it just disappears) at round end.
+  - Both numbers are tuning items, not final — the mechanic (a cap +
+    partial loss above it) is the locked-in part; the specific
+    percentages will move during balance passes.
 - **Colony shortage check:** if total Food/Energy/Smithore production
   colony-wide falls short of consumption, apply the next round's penalty
   (see §4.2) and surface a clear warning banner.
@@ -207,16 +228,45 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 |---|---|---|
 | Food | River-adjacent plots | Turn budget / avoiding shortage penalty |
 | Energy | Plain plots | Powering all other production |
-| Smithore | Mountain-adjacent plots | Building new Mules |
+| Smithore | Mountain-adjacent plots | Store's raw material for manufacturing new Mules (see §6.1) — also a **monopoly play**: a player can buy up and hoard Smithore (from the Store and from other players) to starve the Store's own Smithore stock, which throttles Mule restocking *and* drives the Mule price up (§6). Selfish and bad for the colony's overall growth, but a legitimate strategy — e.g. to deny rivals Mules, or to resell hoarded Smithore later at an inflated price. |
 | Crystite | Hidden deposits (difficulty setting) | Pure money — sell only |
 
 ## 6. Mules & store economy
 
-- **Store stock:** 12 Mules available at game start (colony-wide supply,
-  not per-player). Once sold out, no new Mules can be bought until the
-  store restocks — restock rate/trigger is a balance item to tune in
-  M1/M4 (candidates: a fixed per-round trickle, or restock tied to
-  colony Smithore production).
+### 6.1 Store starting stock & pricing
+
+The Store holds real, tracked inventory — not an abstract infinite
+counterparty — for Food, Energy, and Smithore. Starting stock:
+
+| Resource | Starting stock |
+|---|---|
+| Food | 50 |
+| Energy | 100 |
+| Smithore | 100 |
+
+(Round numbers to start balancing from, not derived from a formula yet —
+tune once production numbers exist. Crystite has no Store stock — see
+§4.4.)
+
+- Selling to the Store increases its stock of that resource; buying from
+  the Store decreases it.
+- Store **prices float with its own stock level**, same principle as the
+  Mule price rule below: low Store stock of a resource → higher price
+  (both to buy and to sell back, since the Store badly wants more of it);
+  high stock → lower price. Exact curve is a tuning item.
+- If Store stock of Food or Energy hits 0, it simply can't sell more
+  until restocked by players selling in — it does not go negative or
+  print infinite supply.
+
+- **Mule stock:** 12 Mules available at game start (colony-wide supply,
+  not per-player). The Store **manufactures new Mules by consuming
+  Smithore from its own stock** (a placeholder ratio of **1 Smithore per
+  Mule** — tune later) each time its Mule count drops below some target;
+  if the Store's Smithore stock runs low or hits 0, restocking slows or
+  stops entirely. This is what makes hoarding Smithore a real colony-wide
+  threat rather than just a personal inconvenience: it doesn't just make
+  existing Mules pricier (§6.2), it can stop new ones from being built at
+  all.
 - **Starting money** (per player, set by difficulty):
   | Difficulty | Starting cash |
   |---|---|
@@ -227,6 +277,9 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
   **Confirmed:** Hard is the "difficult setting" — Crystite and the
   Assay Office are in play only on Hard. Easy/Normal play
   Food/Energy/Smithore only.
+
+### 6.2 Mule pricing & outfitting
+
 - **Mule price:** base price **$125**, bought for cash only (no Smithore
   cost to buy — Smithore is what a player *produces to sell*, not a
   purchase currency, consistent with §5's resource table). The price
