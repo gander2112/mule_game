@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.2)
+# M.U.L.E. Reborn — Design Spec (v0.3)
 
 A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
 Electronic Arts, 1983). Faithful to the original's economy and rhythm;
@@ -137,6 +137,14 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
   - Outfit a Mule for Food / Energy / Smithore / Crystite production and
     place it on one of their claimed plots.
   - Re-outfit or move a Mule they already own.
+  - **Visit the Assay Office** to assay one plot — *any* plot on the map,
+    claimed by anyone or still unclaimed, not just the player's own. Free
+    in money, but costs one action from the turn budget. Reveals that
+    plot's Crystite deposit level — **None / Low / Medium / High** — to
+    the assaying player only; the result is permanent (the plot's
+    deposit is fixed at map generation) and private (other players don't
+    learn it unless they assay the same plot themselves). See §6 for why
+    this matters for Crystite production.
   - Visit the Saloon: drink (costs money, has some benefit — original
     flavor was mostly social) or gamble (wager money against the house or
     another player for a simple stake).
@@ -216,10 +224,9 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
   | Normal | $1,000 |
   | Hard | $1,000 |
 
-  Working assumption: **Hard** is the "difficult setting" from the
-  original — i.e. the one where Crystite and the Assay Office are in
-  play (see §9). Easy/Normal play Food/Energy/Smithore only. Flagging
-  this mapping in §11 to confirm before M4.
+  **Confirmed:** Hard is the "difficult setting" — Crystite and the
+  Assay Office are in play only on Hard. Easy/Normal play
+  Food/Energy/Smithore only.
 - **Mule price:** base price **$125**, bought for cash only (no Smithore
   cost to buy — Smithore is what a player *produces to sell*, not a
   purchase currency, consistent with §5's resource table). The price
@@ -229,21 +236,34 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
   price up. Exact curve and min/max bounds are a tuning item — $125 is
   the starting/reference price, not a fixed price.
 - **Outfitting cost** (one-time cost to configure a Mule for a resource,
-  paid when outfitting or re-outfitting):
+  paid when outfitting or re-outfitting). Smithore mining and Crystite
+  mining are **separate outfit types** with separate prices — confirmed
+  from the original's store screen, which lists Crystite as its own
+  leftmost icon distinct from the ore-mining outfit:
   | Outfit for | Cost |
   |---|---|
   | Food | $25 |
   | Energy | $50 |
-  | Mining (Smithore or Crystite) | $100 |
-
-  Working assumption: "mining" is a single outfit type priced at $100
-  that covers *both* Smithore and Crystite (both are extracted from the
-  ground the same way); which of the two it actually produces is
-  determined by the plot it's placed on (a Crystite deposit vs. a plain
-  Mountain tile), not by a separate outfit choice. Flagging in §11 in
-  case Crystite should instead be a pricier/separate outfit tier.
+  | Smithore mining | $100 |
+  | Crystite mining | $175 *(placeholder in the $150–200 range you gave — tune during balance pass)* |
 - Placed on a plot the player owns; one Mule per plot.
 - Lost to a meteor strike (rare) or can be sold back to the store.
+- **Crystite production is a two-step, sequential process** (the
+  original's time-crunch, reframed as an action-budget cost rather than
+  a clock):
+  1. **Assay** the target plot (see §4.2) — free, costs one turn-budget
+     action, tells the assaying player whether that plot is
+     None/Low/Medium/High for Crystite. This can happen on an earlier
+     turn or round than step 2, including before the plot is even
+     claimed.
+  2. **Place a Crystite-outfitted Mule** on that plot. A Crystite Mule
+     placed on an unassayed or zero-deposit plot produces **nothing** —
+     there's no production without first confirming the plot is worth
+     it, which is the risk/reward the original was going for.
+  - Because assaying is private information, a player can scout several
+    plots over a few rounds before committing, or may be forced to
+    gamble on an un-assayed plot if time/turns are short — this is
+    intentional strategic tension, not a bug to smooth away.
 
 ## 7. UI / visual direction
 
@@ -310,15 +330,16 @@ mule_game/
 
 - Whether to show a live "who's claimed what" feed during Land Grant
   resolution vs. a single end reveal — see §4.1.
-- **Difficulty → resource mapping:** assumed Hard = the original's
-  "difficult setting" (Crystite + Assay Office in play), Easy/Normal =
-  Food/Energy/Smithore only. Confirm before M4.
-- **Mining outfit:** assumed one $100 "mining" outfit produces either
-  Smithore or Crystite depending on the plot it's placed on, rather than
-  Crystite needing its own (pricier) outfit tier. Confirm before M4.
 - **Mule price curve:** $125 base, floats with colony Smithore supply —
   exact formula and min/max bounds still to be set; will draft in a
   balance pass once M1 is underway.
 - **Store Mule restock:** 12 in stock at game start; restock
   rate/trigger once sold out is still open (fixed trickle vs. tied to
   Smithore production).
+- **Crystite outfit price:** using $175 as a placeholder within your
+  $150–200 range; exact number TBD during balance pass.
+- **Assay turn-budget cost:** assumed to cost exactly 1 action, same unit
+  as any other turn action (buy, outfit, saloon visit). Confirm this is
+  the right weight, or whether assaying should be cheaper/free of the
+  action budget entirely given the original framed it as "costs nothing
+  but time" rather than a store transaction.
