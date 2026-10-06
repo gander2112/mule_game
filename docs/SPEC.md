@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.4)
+# M.U.L.E. Reborn — Design Spec (v0.5)
 
 A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
 Electronic Arts, 1983). Faithful to the original's economy and rhythm;
@@ -351,9 +351,28 @@ Given that scope, I'd suggest sequencing the *build* (not the ruleset)
 into milestones so we have a playable game early and layer on complexity,
 rather than building everything before anything is testable:
 
-1. **M1 — Core loop, no networking:** single local client, hotseat,
-   Food/Energy/Smithore only, simplified land grant (no draft twist yet),
-   manual turn passing. Validates the simulation math.
+1. **M1 — Core loop, no networking — done.** Built as an npm-workspaces
+   monorepo: `packages/shared` (pure TypeScript simulation: map
+   generation, store economy/pricing, production math, round
+   orchestration — 37 vitest tests) plus `apps/client` (Vite + Phaser 3
+   hotseat UI: a canvas board for the grid/land-grant clicks, a DOM side
+   panel for turn actions/trade/log). Verified end-to-end in a real
+   browser (Playwright-driven click-through of land grant → buy/outfit/
+   place a Mule → production → trade → round rollover). M1-specific
+   simplifications, to be revisited in later milestones:
+   - Land Grant is sequential claim-one-plot-per-player in a randomized
+     per-round order, not yet the full simultaneous 1st/2nd-choice draft
+     from §4.1 (needs a client that can run a real, timed, simultaneous
+     pick window — scheduled for M2).
+   - No adjacency bonus yet (§3) — production is terrain-match only.
+   - No separate Auction phase yet — a direct Store buy/sell window
+     (§4.4/§6.1) stands in for it; the real player-to-player order-matched
+     auction is M2.
+   - Energy is tracked per-player, not shared/routed across adjacent
+     plots — colony-wide power sharing is folded into the M2 adjacency
+     work.
+   - Crystite/Assay Office, random events, and the Saloon are all out of
+     scope for M1 (Food/Energy/Smithore only, per the original M1 plan).
 2. **M2 — Land Grant mechanic + adjacency + auction:** add the real
    ranked-choice draft, production adjacency bonuses, and the auction
    phase, still hotseat.
@@ -366,18 +385,23 @@ rather than building everything before anything is testable:
 This is a sequencing suggestion, not a scope cut — happy to adjust order
 (e.g., networking earlier if you want to playtest multiplayer sooner).
 
-## 10. Repository layout (proposed)
+## 10. Repository layout
 
 ```
 mule_game/
   apps/
-    client/        # Phaser + TS front end
-    server/        # Colyseus room/game server
+    client/        # Phaser + TS front end (hotseat as of M1)
+    server/        # Colyseus room/game server — arrives in M3
   packages/
-    shared/         # game rules, state types, pure simulation functions
+    shared/        # game rules, state types, pure simulation functions
   docs/
-    SPEC.md         # this file
+    SPEC.md        # this file
 ```
+
+**Running M1 locally:** `npm install` at the repo root, then
+`npm run test -w @mule/shared` for the simulation test suite, or
+`npm run dev:client` to launch the hotseat client at
+`http://localhost:5173`.
 
 ## 11. Open questions / assumptions to confirm before M1
 
