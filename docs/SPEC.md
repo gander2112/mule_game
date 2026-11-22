@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.7)
+# M.U.L.E. Reborn — Design Spec (v0.8)
 
 A browser-based reimagining of *M.U.L.E.* (Ozark Softscape / Electronic
 Arts, 1983), always played by a 4-member colony — 1 to 4 humans, any
@@ -66,15 +66,24 @@ that one idea.
   whole board fits on one screen without scrolling/zooming.
 - Terrain types, assigned at game setup (random but seeded so it's
   reproducible for debugging):
-  - **River tiles** (runs top-to-bottom through the map): Food production
-    bonus.
+  - **River tiles** (one column, position randomized per game — not
+    locked to center): Food production bonus. The original fixed the
+    river down the center column purely because of Atari joystick/sprite
+    constraints, not game design; we're deliberately not carrying that
+    constraint forward.
   - **Mountain tiles** (scattered): Smithore production bonus.
   - **Plain tiles** (no feature): Energy production bonus.
   - **Crystite deposits** (difficulty setting only, see §9): hidden value,
     revealed via the Assay Office.
 - **Store** occupies a fixed central plot (or small central cluster): buy
   Mules, buy outfits, access the Saloon (gambling), access the Assay
-  Office (Crystite games only).
+  Office (Crystite games only). **Open item:** the river's position is
+  already randomized per game in `packages/shared/src/map.ts`, but the
+  Store is still hardcoded to dead-center — for the same "no longer
+  bound by Atari-era constraints" reason, worth randomizing the Store's
+  position too (within reason — probably still needs to be reasonably
+  central/reachable, not jammed in a corner). Revisit during the M2
+  map-generation work.
 - **Adjacency bonus:** a Mule's production is boosted when it sits next
   to other plots of players producing the *same* resource — rewards
   building a contiguous bloc rather than scattering.
