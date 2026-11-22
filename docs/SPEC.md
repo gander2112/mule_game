@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.5)
+# M.U.L.E. Reborn — Design Spec (v0.6)
 
 A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
 Electronic Arts, 1983). Faithful to the original's economy and rhythm;
@@ -420,3 +420,34 @@ mule_game/
   the right weight, or whether assaying should be cheaper/free of the
   action budget entirely given the original framed it as "costs nothing
   but time" rather than a store transaction.
+
+## 12. M1 playtest feedback
+
+From the first hotseat playtest (2 players, Easy difficulty):
+
+- **Energy behaves correctly, but non-obviously.** Energy is consumed the
+  same round it's produced to power Food/Smithore Mules (§4.3); only true
+  surplus carries into inventory. A player with Energy production roughly
+  matched to their Food+Smithore demand will see their Energy balance
+  land at or near 0 every round — this looks like a bug (energy
+  "disappearing") but isn't. Confirmed via the `(energy-limited!)` log
+  flag, which fires exactly when demand outstrips supply. **Action item
+  for M2+ UI:** make this legible in the client itself rather than
+  something a player has to infer from the log.
+- **Colony food consumption should scale with active Mules, not a flat
+  per-player number.** Currently `required = FOOD_CONSUMPTION_PER_PLAYER
+  (5) × player count` regardless of how much is actually running in the
+  colony (§4.5/economy.ts). A 1-Mule colony and a 7-Mule colony
+  shouldn't have the same food bill — the requirement should scale with
+  the number of active (outfitted + placed) Mules in play instead.
+  Needs a concrete formula (e.g. a flat per-Mule upkeep cost) before
+  implementing — flagged for the M1→M2 balance pass.
+- **UI gap: no visible "Food/Energy needed to afford a full turn"
+  indicator.** Players currently only learn they're short via the
+  shortage penalty showing up *next* round. The Turns/Trade screens
+  should surface the threshold (whatever the above formula ends up
+  being) so players can plan for it instead of being surprised by it.
+- Spoilage (§6.1/economy.ts) worked as intended once players started
+  using the Trade window actively — holding Food/Smithore above the
+  20-unit cap visibly spoiled and nudged players to sell down each
+  round, which is exactly the behavior it was designed to encourage.
