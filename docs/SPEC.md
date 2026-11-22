@@ -1,10 +1,24 @@
-# M.U.L.E. Reborn — Design Spec (v0.6)
+# M.U.L.E. Reborn — Design Spec (v0.7)
 
-A browser-based, 2–4 player reimagining of *M.U.L.E.* (Ozark Softscape /
-Electronic Arts, 1983). Faithful to the original's economy and rhythm;
-replaces the joystick-scramble land grab with a fairer, network-friendly
-mechanic. Simple, legible graphics — the original's visual austerity was
-part of what made it readable at a glance, and we're keeping that.
+A browser-based reimagining of *M.U.L.E.* (Ozark Softscape / Electronic
+Arts, 1983), always played by a 4-member colony — 1 to 4 humans, any
+remaining seats filled by simple computer players (§9, M6). Faithful to
+the original's economy and rhythm; replaces the joystick-scramble land
+grab with a fairer, network-friendly mechanic. Simple, legible graphics —
+the original's visual austerity was part of what made it readable at a
+glance, and we're keeping that.
+
+**Design thesis:** a colony of 4 players each trying to be fully
+self-sufficient (growing their own Food, producing their own Energy,
+mining their own ore) is *possible* but visibly worse than a colony where
+players specialize and trade. The economy is built so that lesson falls
+out of play rather than being stated: Energy is consumed the instant
+it's produced (no easy stockpiling), so a jack-of-all-trades player
+constantly caps their own output, while a specialist who trades surplus
+with other players and the Store comes out ahead. Every mechanic below —
+the floating Store prices, Smithore's dual role as Mule fuel and a
+hoardable monopoly play, spoilage punishing hoarding — is in service of
+that one idea.
 
 ## 1. Tech stack
 
@@ -29,7 +43,12 @@ part of what made it readable at a glance, and we're keeping that.
 
 ## 2. Session & networking model
 
-- 2–4 human players per game (no AI opponents in v1 — see §9).
+- **Always 4 players in the colony.** 1–4 of them are humans; any seats
+  humans don't fill are played by simple computer players (see the new
+  M6 milestone in §9). This matches the original: a 1-human game against
+  3 bots is a normal, supported way to play, not a fallback. M1–M2 build
+  and validate the human-player game first; M6 adds the bots once that's
+  solid.
 - Players create or join a **room** via a short room code/link. One client
   acts as host (creates the room); others join with the code.
 - All phases happen in real time inside the shared room — no play-by-mail
@@ -331,7 +350,6 @@ tune once production numbers exist. Crystite has no Store stock — see
 
 ## 8. Out of scope for v1
 
-- AI/bot players (room requires 2–4 humans).
 - Mobile-native apps (responsive web only).
 - Persistent accounts/ranked ladder/match history.
 - Voice/text chat (can rely on an external call if players want one).
@@ -381,6 +399,39 @@ rather than building everything before anything is testable:
 4. **M4 — Difficulty layer:** Crystite, Assay Office, pirate ship, meteor
    strikes, sunspots, wealth rubber-banding.
 5. **M5 — Polish:** UI pass, animations, balance tuning from playtests.
+6. **M6 — Computer players.** Fill any of the 4 colony seats humans
+   don't take with a simple, non-learning heuristic bot — deliberately
+   "pretty simple 80s-style" per the original, not a modern game-AI
+   effort. A rough sketch, to be refined once M2's full land-grant and
+   adjacency mechanics exist to design against:
+   - **Specialize, don't generalize.** On creation, each bot is assigned
+     (or randomly picks) one production specialty — Food, Energy, or
+     Smithore/Crystite mining — and plays that role all game. It never
+     tries to cover all three; this is the design's whole point (see
+     §1's framing: self-sufficiency is legal but inefficient, and the
+     bots should visibly demonstrate that by specializing just like a
+     smart human would).
+   - **Land Grant:** prefer plots matching its specialty's ideal terrain
+     (river for Food, mountain for Smithore, plain for Energy); fall
+     back to whatever's left using the same fallback logic a human's
+     unmatched pick uses (§4.1).
+   - **Turns:** a fixed per-round script, no lookahead/planning — buy a
+     Mule if it can afford one and has an empty owned plot of its
+     terrain; outfit and place it for its specialty; otherwise end turn.
+     A mining bot assays one unassayed owned plot per turn when it has
+     budget to spare (§4.2).
+   - **Trade:** threshold-based, not price-optimizing — sell anything
+     held above a small buffer (keeps spoilage, §6.1, from ever hurting
+     a bot), and buy a modest amount of whatever it doesn't produce
+     itself when its own stock runs low (mainly Energy, for non-Energy
+     bots).
+   - **Never touches:** the Saloon, speculative Mule-price timing, or
+     reacting to what other players are doing — all explicitly out of
+     scope for the "simple" bot, matching 1983 hardware constraints.
+   - Bots call the exact same `packages/shared` game-state functions a
+     human client does (`buyMule`, `outfitAndPlaceMule`, `sellToStore`,
+     etc.) — no special bot-only API, just a decision loop that calls
+     them on a timer/tick instead of waiting for UI clicks.
 
 This is a sequencing suggestion, not a scope cut — happy to adjust order
 (e.g., networking earlier if you want to playtest multiplayer sooner).
