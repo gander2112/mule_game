@@ -1,4 +1,4 @@
-import type { GameState, Mule, Plot, Resource } from "./types.js";
+import type { GameState, Mule, Plot, Player, Resource } from "./types.js";
 
 /** Placeholder, flagged for a balance pass like everything else in economy.ts. */
 export const BASE_YIELD = 10;
@@ -47,7 +47,7 @@ export function baseYieldFor(resource: Resource, terrain: Plot["terrain"]): numb
   return BASE_YIELD * (matches ? TERRAIN_MATCH_MULTIPLIER : 1);
 }
 
-interface ActivePlot {
+export interface ActivePlot {
   plot: Plot;
   mule: Mule;
   outfit: Resource;
@@ -134,51 +134,75 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-export function computeRoundProduction(state: GameState): PlayerProductionResult[] {
-  const results: PlayerProductionResult[] = [];
+/**
+ * Pure, side-effect-free: computes what production *would* yield for one
+ * player given the current board, without touching their inventory. This
+ * is what both `computeRoundProduction` (which applies the result) and a
+ * client-side "what will this round produce?" preview (e.g. a turn-budget
+ * Food/Energy indicator) should call — single source of truth either way.
+ */
+export function previewPlayerProduction(
+  state: GameState,
+  player: Player,
+  active: Map<string, ActivePlot>,
+  blocSizes: Map<string, number>
+): PlayerProductionResult {
+  const rawOutput: Record<Resource, number> = { food: 0, energy: 0, smithore: 0 };
+  let miningMuleCount = 0;
+
+  for (const muleId of player.muleIds) {
+    const mule = state.mules[muleId];
+    if (!mule || !mule.outfit || !mule.plotId) continue;
+    const plot = state.plots.find((p) => p.id === mule.plotId);
+    if (!plot) continue;
+
+    if (MINING_RESOURCES.includes(mule.outfit)) miningMuleCount += 1;
+
+    const multiplier = adjacencyMultiplier(plot, active, blocSizes);
+    rawOutput[mule.outfit] += Math.floor(baseYieldFor(mule.outfit, plot.terrain) * multiplier);
+  }
+
+  const miningMultiplier = miningConsumptionMultiplier(miningMuleCount);
+  const demand = round2(rawOutput.food + rawOutput.smithore * miningMultiplier);
+  const available = player.inventory.energy + rawOutput.energy;
+  const energyLimited = demand > available;
+  const scale = demand > 0 && energyLimited ? available / demand : 1;
+
+  const actualOutput: Record<Resource, number> = {
+    food: Math.floor(rawOutput.food * scale),
+    smithore: Math.floor(rawOutput.smithore * scale),
+    energy: rawOutput.energy,
+  };
+  const energyConsumed = round2(Math.min(demand, available));
+
+  return {
+    playerId: player.id,
+    rawOutput,
+    actualOutput,
+    energyConsumed,
+    energyLimited,
+  };
+}
+
+/** Builds the shared adjacency context once per round/preview so repeated calls don't recompute it per player. */
+export function buildAdjacencyContext(state: GameState): { active: Map<string, ActivePlot>; blocSizes: Map<string, number> } {
   const active = activePlots(state);
   const blocSizes = computeBlocSizes(active);
+  return { active, blocSizes };
+}
+
+export function computeRoundProduction(state: GameState): PlayerProductionResult[] {
+  const results: PlayerProductionResult[] = [];
+  const { active, blocSizes } = buildAdjacencyContext(state);
 
   for (const player of state.players) {
-    const rawOutput: Record<Resource, number> = { food: 0, energy: 0, smithore: 0 };
-    let miningMuleCount = 0;
+    const result = previewPlayerProduction(state, player, active, blocSizes);
 
-    for (const muleId of player.muleIds) {
-      const mule = state.mules[muleId];
-      if (!mule || !mule.outfit || !mule.plotId) continue;
-      const plot = state.plots.find((p) => p.id === mule.plotId);
-      if (!plot) continue;
+    player.inventory.food += result.actualOutput.food;
+    player.inventory.smithore += result.actualOutput.smithore;
+    player.inventory.energy = round2(player.inventory.energy + result.rawOutput.energy - result.energyConsumed);
 
-      if (MINING_RESOURCES.includes(mule.outfit)) miningMuleCount += 1;
-
-      const multiplier = adjacencyMultiplier(plot, active, blocSizes);
-      rawOutput[mule.outfit] += Math.floor(baseYieldFor(mule.outfit, plot.terrain) * multiplier);
-    }
-
-    const miningMultiplier = miningConsumptionMultiplier(miningMuleCount);
-    const demand = round2(rawOutput.food + rawOutput.smithore * miningMultiplier);
-    const available = player.inventory.energy + rawOutput.energy;
-    const energyLimited = demand > available;
-    const scale = demand > 0 && energyLimited ? available / demand : 1;
-
-    const actualOutput: Record<Resource, number> = {
-      food: Math.floor(rawOutput.food * scale),
-      smithore: Math.floor(rawOutput.smithore * scale),
-      energy: rawOutput.energy,
-    };
-    const energyConsumed = round2(Math.min(demand, available));
-
-    player.inventory.food += actualOutput.food;
-    player.inventory.smithore += actualOutput.smithore;
-    player.inventory.energy = round2(player.inventory.energy + rawOutput.energy - energyConsumed);
-
-    results.push({
-      playerId: player.id,
-      rawOutput,
-      actualOutput,
-      energyConsumed,
-      energyLimited,
-    });
+    results.push(result);
   }
 
   return results;

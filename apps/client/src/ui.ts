@@ -4,11 +4,15 @@ import {
   STORAGE_CAP,
   activePlayerId,
   availablePlots,
+  buildAdjacencyContext,
+  colonyFoodRequirement,
   currentLandGrantPlayerId,
+  previewPlayerProduction,
   storePricesFor,
   type Difficulty,
   type GameState,
   type Player,
+  type PlayerProductionResult,
   type Resource,
 } from "@mule/shared";
 
@@ -127,6 +131,36 @@ function renderInventoryRows(player: Player): HTMLElement {
       ])
     )
   );
+}
+
+function renderProductionPreview(preview: PlayerProductionResult, player: Player): HTMLElement {
+  const available = round1(player.inventory.energy + preview.rawOutput.energy);
+  const rows = [
+    el("div", { className: "row" }, [
+      el("span", { className: "label", text: "Predicted Food / Energy / Smithore" }),
+      el("span", {
+        text: `${preview.actualOutput.food} / ${preview.rawOutput.energy} / ${preview.actualOutput.smithore}`,
+      }),
+    ]),
+    el("div", { className: "row" }, [
+      el("span", { className: "label", text: "Energy needed / available" }),
+      el("span", { text: `${round1(preview.energyConsumed)} / ${available}` }),
+    ]),
+  ];
+  const children: (Node | null)[] = [el("h2", { text: "This round's production (preview)" }), ...rows];
+  if (preview.energyLimited) {
+    children.push(
+      el("div", {
+        className: "hint",
+        text: "Energy-limited — Food/Smithore output above will be capped unless you add more Energy production.",
+      })
+    );
+  }
+  return el("div", { className: "panel" }, children);
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 
 function renderStorePanel(state: GameState): HTMLElement {
@@ -260,6 +294,10 @@ export function renderGame(
       el("span", { className: "label", text: "Phase" }),
       el("span", { text: phaseLabel(state) }),
     ]),
+    el("div", { className: "row" }, [
+      el("span", { className: "label", text: "Colony Food needed this round" }),
+      el("span", { text: String(colonyFoodRequirement(state.players, state.mules)) }),
+    ]),
   ]);
   container.appendChild(statusPanel);
 
@@ -314,6 +352,9 @@ export function renderGame(
   );
 
   if (state.phase === "turns") {
+    const { active, blocSizes } = buildAdjacencyContext(state);
+    const preview = previewPlayerProduction(state, player, active, blocSizes);
+    container.appendChild(renderProductionPreview(preview, player));
     container.appendChild(renderTurnsControls(state, player, selection, handlers));
   } else if (state.phase === "trade") {
     const panel = el("div", { className: "panel" }, [el("h2", { text: "Trade window" })]);

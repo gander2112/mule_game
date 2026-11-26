@@ -40,8 +40,10 @@ export {
   baseYieldFor,
   miningConsumptionMultiplier,
   computeRoundProduction,
+  previewPlayerProduction,
+  buildAdjacencyContext,
 } from "./production.js";
-export type { PlayerProductionResult } from "./production.js";
+export type { PlayerProductionResult, ActivePlot } from "./production.js";
 
 export {
   createGame,
