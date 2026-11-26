@@ -1,4 +1,4 @@
-# M.U.L.E. Reborn — Design Spec (v0.8)
+# M.U.L.E. Reborn — Design Spec (v0.9)
 
 A browser-based reimagining of *M.U.L.E.* (Ozark Softscape / Electronic
 Arts, 1983), always played by a 4-member colony — 1 to 4 humans, any
@@ -84,19 +84,27 @@ that one idea.
   position too (within reason — probably still needs to be reasonably
   central/reachable, not jammed in a corner). Revisit during the M2
   map-generation work.
-- **Adjacency bonus:** a Mule's production is boosted when it sits next
-  to other plots of players producing the *same* resource — rewards
-  building a contiguous bloc rather than scattering.
-  - **+10% production per same-resource adjacent neighbor** (up to 4
-    neighbors, one per side of the grid tile).
-  - **+5% extra kicker when the bloc is 3 or more tiles**, i.e. once a
-    plot's cluster of mutually-adjacent same-resource plots reaches size
-    3+, every plot in that cluster gets the base +10%/neighbor *plus* a
-    flat +5%. This rewards committing to a bloc over just pairing up two
-    plots.
+- **Adjacency bonus:** two separate, stacking effects — a general
+  "developed patch" bonus for any adjacency at all, and a bigger bonus
+  layered on top for same-resource specialization. Deliberately modeled
+  as two distinct economic effects (agglomeration vs. specialization)
+  rather than one unified number:
+  - **Developed-patch bonus (any resource mix): +5% production per
+    adjacent worked neighbor**, regardless of what that neighbor
+    produces (up to 4 neighbors). Rewards contiguous development on its
+    own — a mixed-use district still beats scattering plots randomly
+    across the map.
+  - **Same-resource bloc bonus, on top of the above: +10% production per
+    same-resource adjacent neighbor** (up to 4 neighbors), **+5% extra
+    kicker once the same-resource bloc reaches 3+ tiles** (every plot in
+    that cluster gets the base +10%/neighbor plus a flat +5%). Rewards
+    committing to a specialized bloc over just mixing it up.
   - Example: a plot with 2 same-resource neighbors in a bloc of 3+ gets
-    +10%×2 + 5% = +25% total; the same plot in an isolated pair (bloc
-    size 2) gets +10%×2 = +20%, no kicker.
+    the full stack: +5%×2 (patch) + 10%×2 (same-resource) + 5% (bloc
+    kicker) = +35% total. The same plot with 2 *mixed*-resource
+    neighbors gets only the patch bonus: +5%×2 = +10%.
+  - All percentages here are placeholders pending a balance pass, same
+    as everywhere else in this doc.
 
 ## 4. Round structure
 
@@ -195,6 +203,42 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
 - Server computes all production simultaneously and reveals results to
   all players at once.
 
+#### Energy consumption (physical, not a price)
+
+This is about how much Energy producing something *uses up* — a
+resource-flow quantity, completely separate from the Store's $ price for
+Energy, which is set purely by supply/demand on its own stock (§6.1) and
+is unaffected by any of this. Consumption just determines how fast a
+player burns through their own Energy supply, which then feeds into their
+own buy/sell pressure on that already-existing market, same as any other
+drawdown would.
+
+- **Food and Energy production:** unchanged, flat 1 Energy consumed per
+  unit produced.
+- **Mining (Smithore/Crystite) production scales non-linearly per
+  player:** each mining Mule beyond a player's first makes mining *less*
+  Energy-efficient for all of that player's mining Mules, not just the
+  new one — a solo mining operation doesn't suffer, but a concentrated
+  one does. Modeled as a consumption multiplier on the base 1-Energy-per-
+  unit rate: `multiplier = 1 + 0.10 × (miningMuleCount − 1)`, where
+  `miningMuleCount` is that player's own count of active (outfitted +
+  placed) Smithore/Crystite Mules — other players' mining doesn't affect
+  you (§4.2 already made Energy per-player, not colony-shared; this
+  stays consistent with that).
+  - 1 mining Mule: ×1.0 (no penalty)
+  - 2: ×1.1
+  - 3: ×1.2
+  - 4: ×1.3
+  - So on a illustrative base of 2 Energy/Mule, 4 mining Mules consume
+    ~10.4 total rather than a naive linear 8 — noticeably more, not
+    explosively more. This is a placeholder curve (the +10%/Mule rate),
+    not final — tune during balance passes like everything else here.
+  - This is a direct, deliberate cost to over-specializing in mining
+    alone: it reinforces the design thesis (§1) by making a solo "mining
+    empire" strategy specifically want an Energy-producing trade partner
+    more and more as it scales, rather than just being a flat
+    inefficiency like any other self-sufficiency attempt.
+
 ### 4.4 Auction
 
 - One open auction per round. All players can simultaneously post sell
@@ -231,9 +275,18 @@ resolution (more tension, more spectacle) vs. a single reveal at the end
   - Both numbers are tuning items, not final — the mechanic (a cap +
     partial loss above it) is the locked-in part; the specific
     percentages will move during balance passes.
-- **Colony shortage check:** if total Food/Energy/Smithore production
-  colony-wide falls short of consumption, apply the next round's penalty
-  (see §4.2) and surface a clear warning banner.
+- **Colony shortage check:** colony-wide, not per-player — this is the
+  shared-fate mechanic the design thesis (§1) depends on; the whole
+  colony's turn budget suffers together, not individuals in isolation.
+  Food *requirement* scales with what's actually running rather than a
+  flat `5 × players`: sum, across every active (outfitted + placed)
+  Mule in the colony regardless of owner, a per-Mule weight — **Energy
+  Mule: 1, Food Mule: 1, Mining Mule (Smithore/Crystite): 2** (mining is
+  harder, hungrier work). An idle, unoutfitted Mule costs nothing. If
+  colony-wide Food production falls short of that total, apply the next
+  round's turn-budget penalty (§4.2) to everyone and surface a clear
+  warning banner. These per-Mule weights are placeholders, same as
+  everything else flagged for a balance pass.
 - **Random events** (see §9 for which are in v1):
   - *Pirate ship* (once per game, difficulty setting only): confiscates
     all stored Smithore and Crystite.
@@ -494,14 +547,12 @@ From the first hotseat playtest (2 players, Easy difficulty):
   flag, which fires exactly when demand outstrips supply. **Action item
   for M2+ UI:** make this legible in the client itself rather than
   something a player has to infer from the log.
-- **Colony food consumption should scale with active Mules, not a flat
-  per-player number.** Currently `required = FOOD_CONSUMPTION_PER_PLAYER
-  (5) × player count` regardless of how much is actually running in the
-  colony (§4.5/economy.ts). A 1-Mule colony and a 7-Mule colony
-  shouldn't have the same food bill — the requirement should scale with
-  the number of active (outfitted + placed) Mules in play instead.
-  Needs a concrete formula (e.g. a flat per-Mule upkeep cost) before
-  implementing — flagged for the M1→M2 balance pass.
+- **Colony food consumption scaling with active Mules — resolved, see
+  §4.5.** The flat `5 × player count` is replaced with a per-Mule-type
+  weighted sum (Energy/Food Mule: 1, Mining Mule: 2); still colony-wide,
+  not per-player, to preserve the shared-fate mechanic. Not yet
+  implemented in code (still M1's flat version) — scheduled for the
+  same pass as the new Energy-consumption and adjacency models below.
 - **UI gap: no visible "Food/Energy needed to afford a full turn"
   indicator.** Players currently only learn they're short via the
   shortage penalty showing up *next* round. The Turns/Trade screens
