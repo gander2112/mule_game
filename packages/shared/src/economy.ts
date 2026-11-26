@@ -1,4 +1,4 @@
-import type { Inventory, Player, Resource, StoreState } from "./types.js";
+import type { Inventory, Mule, Player, Resource, StoreState } from "./types.js";
 import { RESOURCES } from "./types.js";
 
 /**
@@ -43,7 +43,31 @@ export const BASE_TURN_BUDGET = 5;
 export const SHORTAGE_TURN_PENALTY = 2;
 export const MIN_TURN_BUDGET = 1;
 
-export const FOOD_CONSUMPTION_PER_PLAYER = 5;
+/**
+ * Colony-wide Food requirement, replacing the old flat
+ * `FOOD_CONSUMPTION_PER_PLAYER * players.length`. Weighted by how
+ * labor-intensive each active (outfitted + placed) Mule's work is — an
+ * idle, unoutfitted Mule costs nothing. Stays colony-wide (not
+ * per-player) deliberately: the shortage penalty is a shared-fate
+ * mechanic (docs/SPEC.md §1/§4.5), not an individual one.
+ */
+export const FOOD_UPKEEP_PER_MULE: Record<Resource, number> = {
+  food: 1,
+  energy: 1,
+  smithore: 2,
+};
+
+export function colonyFoodRequirement(players: Player[], mules: Record<string, Mule>): number {
+  let total = 0;
+  for (const player of players) {
+    for (const muleId of player.muleIds) {
+      const mule = mules[muleId];
+      if (!mule || !mule.outfit || !mule.plotId) continue;
+      total += FOOD_UPKEEP_PER_MULE[mule.outfit];
+    }
+  }
+  return total;
+}
 
 const MIN_PRICE_MULTIPLIER = 0.5;
 const MAX_PRICE_MULTIPLIER = 2.5;

@@ -6,8 +6,10 @@ import {
   MULE_BASE_PRICE,
   MULE_STOCK_TARGET,
   SMITHORE_PER_MULE,
+  FOOD_UPKEEP_PER_MULE,
   applySpoilage,
   buyFromStore,
+  colonyFoodRequirement,
   computeTurnBudget,
   createStore,
   mulePrice,
@@ -17,7 +19,7 @@ import {
   storePricesFor,
   buyMule,
 } from "../src/economy.js";
-import type { Player, StoreState } from "../src/types.js";
+import type { Mule, Player, StoreState } from "../src/types.js";
 
 function freshPlayer(overrides: Partial<Player> = {}): Player {
   return {
@@ -197,5 +199,49 @@ describe("computeTurnBudget", () => {
 
   it("reduces the budget after a colony food shortage, never below the floor", () => {
     expect(computeTurnBudget(true)).toBe(3);
+  });
+});
+
+function mule(id: string, ownerId: string, outfit: Mule["outfit"], plotId: string | null): Mule {
+  return { id, ownerId, outfit, plotId };
+}
+
+describe("colonyFoodRequirement", () => {
+  it("is zero with no active Mules", () => {
+    const players = [freshPlayer({ id: "p1", muleIds: [] })];
+    expect(colonyFoodRequirement(players, {})).toBe(0);
+  });
+
+  it("weighs Food/Energy Mules at 1 and Mining Mules at 2", () => {
+    const players = [freshPlayer({ id: "p1", muleIds: ["m1", "m2", "m3"] })];
+    const mules = {
+      m1: mule("m1", "p1", "food", "1-1"),
+      m2: mule("m2", "p1", "energy", "2-1"),
+      m3: mule("m3", "p1", "smithore", "3-1"),
+    };
+    expect(colonyFoodRequirement(players, mules)).toBe(
+      FOOD_UPKEEP_PER_MULE.food + FOOD_UPKEEP_PER_MULE.energy + FOOD_UPKEEP_PER_MULE.smithore
+    );
+  });
+
+  it("ignores Mules that aren't both outfitted and placed", () => {
+    const players = [freshPlayer({ id: "p1", muleIds: ["m1", "m2"] })];
+    const mules = {
+      m1: mule("m1", "p1", null, null),
+      m2: mule("m2", "p1", "food", null),
+    };
+    expect(colonyFoodRequirement(players, mules)).toBe(0);
+  });
+
+  it("sums across every player in the colony, not just one", () => {
+    const players = [
+      freshPlayer({ id: "p1", muleIds: ["m1"] }),
+      freshPlayer({ id: "p2", muleIds: ["m2"] }),
+    ];
+    const mules = {
+      m1: mule("m1", "p1", "smithore", "1-1"),
+      m2: mule("m2", "p2", "smithore", "2-1"),
+    };
+    expect(colonyFoodRequirement(players, mules)).toBe(FOOD_UPKEEP_PER_MULE.smithore * 2);
   });
 });

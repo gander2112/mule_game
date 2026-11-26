@@ -11,7 +11,7 @@ import {
   sellToStore as economySellToStore,
   buyFromStore as economyBuyFromStore,
   buyMule as economyBuyMule,
-  FOOD_CONSUMPTION_PER_PLAYER,
+  colonyFoodRequirement,
 } from "./economy.js";
 import { computeRoundProduction } from "./production.js";
 import { claimPlot, currentLandGrantPlayerId, availablePlots } from "./landGrant.js";
@@ -187,7 +187,7 @@ function runProductionPhase(state: GameState): void {
         (result.energyLimited ? " (energy-limited!)" : "")
     );
   }
-  const required = FOOD_CONSUMPTION_PER_PLAYER * state.players.length;
+  const required = colonyFoodRequirement(state.players, state.mules);
   state.colonyFoodShortfallLastRound = totalFood < required;
   if (state.colonyFoodShortfallLastRound) {
     log(state, `Colony food shortage: produced ${totalFood}, needed ${required}.`);

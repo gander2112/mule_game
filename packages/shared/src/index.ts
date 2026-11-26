@@ -16,7 +16,7 @@ export {
   BASE_TURN_BUDGET,
   SHORTAGE_TURN_PENALTY,
   MIN_TURN_BUDGET,
-  FOOD_CONSUMPTION_PER_PLAYER,
+  FOOD_UPKEEP_PER_MULE,
   priceMultiplier,
   storePricesFor,
   mulePrice,
@@ -24,10 +24,23 @@ export {
   refreshStorePrices,
   playerWealth,
   computeTurnBudget,
+  colonyFoodRequirement,
 } from "./economy.js";
 export type { TradeResult, SpoilageResult } from "./economy.js";
 
-export { BASE_YIELD, TERRAIN_MATCH_MULTIPLIER, baseYieldFor, computeRoundProduction } from "./production.js";
+export {
+  BASE_YIELD,
+  TERRAIN_MATCH_MULTIPLIER,
+  MINING_RESOURCES,
+  MINING_CONSUMPTION_GROWTH,
+  DEVELOPED_PATCH_BONUS_PER_NEIGHBOR,
+  SAME_RESOURCE_BONUS_PER_NEIGHBOR,
+  SAME_RESOURCE_BLOC_KICKER,
+  SAME_RESOURCE_BLOC_MIN_SIZE,
+  baseYieldFor,
+  miningConsumptionMultiplier,
+  computeRoundProduction,
+} from "./production.js";
 export type { PlayerProductionResult } from "./production.js";
 
 export {
