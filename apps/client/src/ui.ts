@@ -6,7 +6,8 @@ import {
   availablePlots,
   buildAdjacencyContext,
   colonyFoodRequirement,
-  currentLandGrantPlayerId,
+  nextLandGrantSubmitter,
+  landGrantSubmittedCount,
   previewPlayerProduction,
   storePricesFor,
   type Difficulty,
@@ -28,9 +29,22 @@ export interface GameHandlers {
   onSell: (resource: Resource, amount: number) => void;
   onBuy: (resource: Resource, amount: number) => void;
   onEndTurn: () => void;
+  onLandGrantReady: () => void;
+  onLandGrantReset: () => void;
+  onLandGrantSubmit: () => void;
+  onLandGrantContinue: () => void;
 }
 
 export type Selection = { kind: "place-mule"; muleId: string; resource: Resource } | null;
+
+export interface LandGrantUiState {
+  /** Has the current submitter clicked past the "pass the device" cover screen? */
+  ready: boolean;
+  draft: { first: string | null; second: string | null };
+  /** Showing the post-resolution reveal screen (phase has already moved to "turns"). */
+  reveal: boolean;
+  revealLog: string[];
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -276,10 +290,73 @@ function renderTurnsControls(
   return el("div", { className: "panel" }, pieces);
 }
 
+function renderLandGrantHandoff(state: GameState, handlers: GameHandlers): HTMLElement {
+  const playerId = nextLandGrantSubmitter(state);
+  const player = state.players.find((p) => p.id === playerId);
+  const submitted = landGrantSubmittedCount(state);
+  const total = state.landGrantOrder.length;
+
+  const readyBtn = el("button", { className: "primary", text: player ? `I'm ${player.name} — Ready` : "Ready" });
+  readyBtn.addEventListener("click", handlers.onLandGrantReady);
+
+  return el("div", { className: "panel" }, [
+    el("h2", { text: "Land Grant — pass the device" }),
+    el("div", { text: `This round's picks are blind: everyone else, look away until it's your turn.` }),
+    el("div", { className: "hint", text: `${submitted}/${total} players have locked in their picks.` }),
+    readyBtn,
+  ]);
+}
+
+function renderLandGrantPicking(state: GameState, landGrant: LandGrantUiState, handlers: GameHandlers): HTMLElement {
+  const playerId = nextLandGrantSubmitter(state);
+  const player = state.players.find((p) => p.id === playerId);
+  const { first, second } = landGrant.draft;
+
+  let instruction: string;
+  if (!first) instruction = "Click your 1st-choice plot on the board (any open, non-gold tile).";
+  else if (!second) instruction = "Click your 2nd-choice plot — a different one.";
+  else instruction = "Both picks are in. Submit when ready, or reset to change them.";
+
+  const resetBtn = el("button", { text: "Reset picks" });
+  resetBtn.addEventListener("click", handlers.onLandGrantReset);
+  const submitBtn = el("button", {
+    className: "primary",
+    text: "Submit Picks",
+    disabled: !first || !second,
+  });
+  submitBtn.addEventListener("click", handlers.onLandGrantSubmit);
+
+  return el("div", { className: "panel" }, [
+    el("h2", { text: `${player?.name ?? "Your"}'s picks` }),
+    el("div", { text: instruction }),
+    el("div", { className: "row" }, [
+      el("span", { className: "label", text: "1st choice" }),
+      el("span", { text: first ?? "—" }),
+    ]),
+    el("div", { className: "row" }, [
+      el("span", { className: "label", text: "2nd choice" }),
+      el("span", { text: second ?? "—" }),
+    ]),
+    el("div", { className: "action-group" }, [resetBtn, submitBtn]),
+  ]);
+}
+
+function renderLandGrantReveal(landGrant: LandGrantUiState, handlers: GameHandlers): HTMLElement {
+  const continueBtn = el("button", { className: "primary", text: "Continue to Turns" });
+  continueBtn.addEventListener("click", handlers.onLandGrantContinue);
+
+  return el("div", { className: "panel" }, [
+    el("h2", { text: "Land Grant resolved" }),
+    ...landGrant.revealLog.map((msg) => el("div", { text: msg })),
+    continueBtn,
+  ]);
+}
+
 export function renderGame(
   container: HTMLElement,
   state: GameState,
   selection: Selection,
+  landGrant: LandGrantUiState,
   handlers: GameHandlers
 ): void {
   container.innerHTML = "";
@@ -301,20 +378,18 @@ export function renderGame(
   ]);
   container.appendChild(statusPanel);
 
+  if (landGrant.reveal) {
+    container.appendChild(renderLandGrantReveal(landGrant, handlers));
+    container.appendChild(renderStorePanel(state));
+    container.appendChild(renderLog(state));
+    return;
+  }
+
   if (state.phase === "land-grant") {
-    const playerId = currentLandGrantPlayerId(state);
-    const player = state.players.find((p) => p.id === playerId);
     container.appendChild(
-      el("div", { className: "panel" }, [
-        el("h2", { text: "Land Grant" }),
-        el("div", {
-          text: player
-            ? `${player.name}'s turn to claim a plot — click an open (non-gold) plot on the board.`
-            : "",
-        }),
-        el("div", { className: "hint", text: `${availablePlots(state).length} plots remain unclaimed.` }),
-      ])
+      landGrant.ready ? renderLandGrantPicking(state, landGrant, handlers) : renderLandGrantHandoff(state, handlers)
     );
+    container.appendChild(el("div", { className: "hint", text: `${availablePlots(state).length} plots remain unclaimed.` }));
     container.appendChild(renderStorePanel(state));
     container.appendChild(renderLog(state));
     return;

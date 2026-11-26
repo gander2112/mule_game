@@ -53,7 +53,8 @@ export {
   sellToStore,
   buyFromStore,
   endPlayerTurn,
-  claimPlot,
-  currentLandGrantPlayerId,
+  submitLandGrantPicks,
+  nextLandGrantSubmitter,
+  landGrantSubmittedCount,
   availablePlots,
 } from "./game.js";

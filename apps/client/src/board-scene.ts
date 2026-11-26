@@ -31,8 +31,14 @@ interface CellVisual {
   rect: Phaser.GameObjects.Rectangle;
   border: Phaser.GameObjects.Rectangle;
   highlight: Phaser.GameObjects.Rectangle;
+  selected: Phaser.GameObjects.Rectangle;
   muleIcon: Phaser.GameObjects.Text;
   label: Phaser.GameObjects.Text;
+}
+
+export interface SelectedPlotMarks {
+  /** plotId -> label drawn on the selected-pick outline, e.g. "1st"/"2nd". */
+  [plotId: string]: string;
 }
 
 export class BoardScene extends Phaser.Scene {
@@ -70,6 +76,10 @@ export class BoardScene extends Phaser.Scene {
     highlight.setStrokeStyle(3, 0xffffff, 0);
     highlight.setFillStyle(undefined, 0);
 
+    const selected = this.add.rectangle(cx, cy, CELL_SIZE - 10, CELL_SIZE - 10);
+    selected.setStrokeStyle(4, 0xf2c744, 0);
+    selected.setFillStyle(undefined, 0);
+
     const muleIcon = this.add.text(cx, cy, "", {
       fontSize: "20px",
       fontStyle: "bold",
@@ -82,7 +92,7 @@ export class BoardScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
-    this.cells.set(id, { rect, border, highlight, muleIcon, label });
+    this.cells.set(id, { rect, border, highlight, selected, muleIcon, label });
   }
 
   private colorForPlayer(playerId: string, state: GameState): number {
@@ -94,7 +104,11 @@ export class BoardScene extends Phaser.Scene {
     return PLAYER_COLORS[idx % PLAYER_COLORS.length]!;
   }
 
-  redraw(state: GameState, highlightedPlotIds: ReadonlySet<string> = new Set()): void {
+  redraw(
+    state: GameState,
+    highlightedPlotIds: ReadonlySet<string> = new Set(),
+    selectedPlotMarks: SelectedPlotMarks = {}
+  ): void {
     for (const plot of state.plots) {
       const visual = this.cells.get(plot.id);
       if (!visual) continue;
@@ -108,8 +122,11 @@ export class BoardScene extends Phaser.Scene {
         visual.label.setText(ownerIndex >= 0 ? `P${ownerIndex + 1}` : "");
       } else {
         visual.border.setStrokeStyle(3, 0x000000, 0);
-        visual.label.setText("");
+        visual.label.setText(selectedPlotMarks[plot.id] ?? "");
       }
+
+      const mark = selectedPlotMarks[plot.id];
+      visual.selected.setStrokeStyle(4, 0xf2c744, mark ? 1 : 0);
 
       if (plot.muleId) {
         const mule = state.mules[plot.muleId];

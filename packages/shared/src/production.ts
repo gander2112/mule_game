@@ -1,3 +1,4 @@
+import { NEIGHBOR_OFFSETS, plotIdAt } from "./grid.js";
 import type { GameState, Mule, Plot, Player, Resource } from "./types.js";
 
 /** Placeholder, flagged for a balance pass like everything else in economy.ts. */
@@ -20,13 +21,6 @@ const IDEAL_TERRAIN: Record<Resource, Plot["terrain"]> = {
   energy: "plain",
   smithore: "mountain",
 };
-
-const NEIGHBOR_OFFSETS = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
 
 /**
  * M1 simplification: each player's Energy is their own, produced and spent
@@ -67,7 +61,7 @@ function activePlots(state: GameState): Map<string, ActivePlot> {
 function neighborsOf(plot: Plot, active: Map<string, ActivePlot>): ActivePlot[] {
   const neighbors: ActivePlot[] = [];
   for (const [dx, dy] of NEIGHBOR_OFFSETS) {
-    const neighbor = active.get(`${plot.x + dx}-${plot.y + dy}`);
+    const neighbor = active.get(plotIdAt(plot.x + dx, plot.y + dy));
     if (neighbor) neighbors.push(neighbor);
   }
   return neighbors;

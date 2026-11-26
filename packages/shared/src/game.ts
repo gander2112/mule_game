@@ -14,10 +14,10 @@ import {
   colonyFoodRequirement,
 } from "./economy.js";
 import { computeRoundProduction } from "./production.js";
-import { claimPlot, currentLandGrantPlayerId, availablePlots } from "./landGrant.js";
+import { submitLandGrantPicks, nextLandGrantSubmitter, landGrantSubmittedCount, availablePlots } from "./landGrant.js";
 import type { CreateGameOptions, GameState, Mule, Player, Resource } from "./types.js";
 
-export { claimPlot, currentLandGrantPlayerId, availablePlots };
+export { submitLandGrantPicks, nextLandGrantSubmitter, landGrantSubmittedCount, availablePlots };
 
 function freshPlayer(id: string, name: string, cash: number): Player {
   return {
@@ -51,7 +51,7 @@ export function createGame(options: CreateGameOptions): GameState {
     turnOrder: players.map((p) => p.id),
     activePlayerIndex: 0,
     landGrantOrder: [],
-    landGrantIndex: 0,
+    landGrantPicks: {},
     colonyFoodShortfallLastRound: false,
     log: [],
     muleSeq: 0,
@@ -77,9 +77,10 @@ function beginRound(state: GameState): void {
     .map((p) => p.id);
   state.turnOrder = order;
   state.landGrantOrder = shuffle(order, roundRand(state));
-  state.landGrantIndex = 0;
+  state.landGrantPicks = {};
   state.activePlayerIndex = 0;
-  state.phase = state.landGrantOrder.length > 0 && availablePlots(state).length > 0 ? "land-grant" : "turns";
+  // A 1st/2nd-choice pick needs at least 2 distinct open plots to be possible at all.
+  state.phase = state.landGrantOrder.length > 0 && availablePlots(state).length >= 2 ? "land-grant" : "turns";
 
   const budget = computeTurnBudget(state.colonyFoodShortfallLastRound);
   for (const player of state.players) {

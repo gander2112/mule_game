@@ -60,6 +60,20 @@ export interface GameEvent {
   message: string;
 }
 
+/**
+ * A player's blind 1st/2nd-choice Land Grant pick (§4.1). In M2's hotseat
+ * "pass the device" adaptation, the data model still represents true
+ * blind simultaneous submission (nobody's pick is visible to others, or
+ * used for anything, until resolveLandGrant runs once everyone has
+ * submitted) — only the UI enforces the privacy, via cover screens,
+ * since everyone shares one browser tab. Real per-device privacy arrives
+ * with M3's networking.
+ */
+export interface LandGrantPick {
+  first: string;
+  second: string;
+}
+
 export interface GameState {
   round: number;
   maxRounds: number;
@@ -72,7 +86,7 @@ export interface GameState {
   turnOrder: string[];
   activePlayerIndex: number;
   landGrantOrder: string[];
-  landGrantIndex: number;
+  landGrantPicks: Record<string, LandGrantPick>;
   colonyFoodShortfallLastRound: boolean;
   log: GameEvent[];
   muleSeq: number;

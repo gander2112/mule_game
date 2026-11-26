@@ -7,19 +7,24 @@ import {
   activePlayerId,
   availablePlots,
   buyMule,
-  claimPlot,
   createGame,
-  currentLandGrantPlayerId,
+  nextLandGrantSubmitter,
   endPlayerTurn,
   outfitAndPlaceMule,
+  submitLandGrantPicks,
 } from "../src/index.js";
 import type { GameState } from "../src/index.js";
 
+/** Gives each player a distinct, non-overlapping pair of picks so nobody's choices are contested — exercises the happy path, not Pass B/fallback (see landGrant.test.ts for those). */
 function claimAllLand(state: GameState): void {
+  let offset = 0;
   while (state.phase === "land-grant") {
-    const playerId = currentLandGrantPlayerId(state)!;
-    const plotId = availablePlots(state)[0]!;
-    claimPlot(state, playerId, plotId);
+    const playerId = nextLandGrantSubmitter(state)!;
+    const open = availablePlots(state);
+    const first = open[offset]!;
+    const second = open[offset + 1]!;
+    submitLandGrantPicks(state, playerId, first, second);
+    offset += 2;
   }
 }
 
@@ -41,8 +46,8 @@ describe("createGame", () => {
   });
 });
 
-describe("land grant (M1 sequential simplification)", () => {
-  it("lets each player claim exactly one plot per round, then advances to turns", () => {
+describe("land grant (ranked-choice draft)", () => {
+  it("lets each player end up with exactly one new plot per round, then advances to turns", () => {
     const state = createGame({ playerNames: ["Alice", "Bob", "Carol"], difficulty: "normal", seed: 7 });
     claimAllLand(state);
     expect(state.phase).toBe("turns");
@@ -52,20 +57,19 @@ describe("land grant (M1 sequential simplification)", () => {
     }
   });
 
-  it("refuses a claim out of turn order", () => {
+  it("refuses a second submission from the same player in one round", () => {
     const state = createGame({ playerNames: ["Alice", "Bob"], difficulty: "normal", seed: 3 });
-    const notFirst = state.landGrantOrder[1]!;
-    const plotId = availablePlots(state)[0]!;
-    expect(() => claimPlot(state, notFirst, plotId)).toThrow();
+    const playerId = nextLandGrantSubmitter(state)!;
+    const [first, second, third] = availablePlots(state);
+    submitLandGrantPicks(state, playerId, first!, second!);
+    expect(() => submitLandGrantPicks(state, playerId, second!, third!)).toThrow();
   });
 
-  it("refuses to claim an already-claimed plot", () => {
+  it("refuses identical 1st and 2nd choices", () => {
     const state = createGame({ playerNames: ["Alice", "Bob"], difficulty: "normal", seed: 3 });
-    const first = currentLandGrantPlayerId(state)!;
+    const playerId = nextLandGrantSubmitter(state)!;
     const plotId = availablePlots(state)[0]!;
-    claimPlot(state, first, plotId);
-    const second = currentLandGrantPlayerId(state)!;
-    expect(() => claimPlot(state, second, plotId)).toThrow();
+    expect(() => submitLandGrantPicks(state, playerId, plotId, plotId)).toThrow();
   });
 });
 
